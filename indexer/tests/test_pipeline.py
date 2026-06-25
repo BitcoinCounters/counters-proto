@@ -1,0 +1,228 @@
+"""End-to-end pipeline test with synthetic data (no live nodes).
+
+Proves the full path: COUNT envelope in a witness -> join with a Core
+"valid creation" issuance -> assign number 0 -> store record + blob.
+Also checks the negative cases that gate validity.
+
+Run: python tests/test_pipeline.py   (or via pytest)
+"""
+
+from __future__ import annotations
+
+import hashlib
+import os
+import sys
+import tempfile
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from counter_indexer.config import Config  # noqa: E402
+from counter_indexer.counterparty import CounterpartyClient  # noqa: E402
+from counter_indexer.indexer import Indexer  # noqa: E402
+from counter_indexer.store import Store  # noqa: E402
+
+
+# --- script/witness builders (canonical COUNT envelope) --------------------
+
+def push(data: bytes) -> bytes:
+    n = len(data)
+    if n == 0:
+        return b"\x00"
+    if n < 0x4C:
+        return bytes([n]) + data
+    if n <= 0xFF:
+        return b"\x4c" + bytes([n]) + data
+    if n <= 0xFFFF:
+        return b"\x4d" + n.to_bytes(2, "little") + data
+    raise ValueError("too big")
+
+
+def counter_leaf_script(content_type: bytes, body: bytes) -> bytes:
+    return (
+        b"\x00\x63"                       # OP_FALSE OP_IF
+        + push(b"COUNT")                  # marker
+        + push(b"\x01") + push(content_type)  # tag 1 = content_type
+        + b"\x00"                          # empty-push separator
+        + push(body)                       # body
+        + b"\x68"                          # OP_ENDIF
+        + push(b"\x11" * 32) + b"\xac"    # x-only pubkey + OP_CHECKSIG
+    )
+
+
+def taproot_witness(leaf_script: bytes) -> list[str]:
+    # [signature, leaf script, control block] -- script-path spend
+    sig = b"\x30" * 64
+    control = b"\xc0" + b"\x11" * 32
+    return [sig.hex(), leaf_script.hex(), control.hex()]
+
+
+def make_block(height: int, txid: str, content_type: bytes, body: bytes) -> dict:
+    leaf = counter_leaf_script(content_type, body)
+    return {
+        "hash": f"blockhash{height}",
+        "height": height,
+        "tx": [
+            {"txid": "deadbeef_no_witness", "vin": [{"coinbase": "00"}], "vout": []},
+            {
+                "txid": txid,
+                "vin": [{"txid": "prev", "vout": 0, "txinwitness": taproot_witness(leaf)}],
+                "vout": [],
+            },
+        ],
+    }
+
+
+# --- fakes -----------------------------------------------------------------
+
+class FakeBitcoind:
+    def __init__(self, blocks: dict[int, dict], tip: int):
+        self._blocks = blocks
+        self._tip = tip
+
+    def get_block_count(self) -> int:
+        return self._tip
+
+    def get_block_hash(self, height: int) -> str:
+        return self._blocks[height]["hash"]
+
+    def get_block(self, block_hash: str, verbosity: int = 2) -> dict:
+        for b in self._blocks.values():
+            if b["hash"] == block_hash:
+                return b
+        raise KeyError(block_hash)
+
+
+class FakeCounterparty:
+    """Mirrors the real client's interface used by the indexer."""
+
+    def __init__(self, issuances_by_block: dict[int, dict], assets: dict[str, dict]):
+        self._iss = issuances_by_block
+        self._assets = assets
+
+    def get_block_issuances(self, height: int) -> dict[str, list[dict]]:
+        return self._iss.get(height, {})
+
+    def get_asset(self, asset: str) -> dict | None:
+        return self._assets.get(asset)
+
+    # reuse the real validity/creation logic
+    is_valid = staticmethod(CounterpartyClient.is_valid)
+    is_creation = staticmethod(CounterpartyClient.is_creation)
+
+
+def build_indexer(block: dict, issuances: dict, assets: dict, tmp: str) -> Indexer:
+    cfg = Config()
+    cfg.data_dir = tmp
+    store = Store(cfg)
+    btc = FakeBitcoind({block["height"]: block}, tip=block["height"])
+    cp = FakeCounterparty({block["height"]: issuances}, assets)
+    return Indexer(cfg, btc=btc, cp=cp, store=store)
+
+
+# --- tests -----------------------------------------------------------------
+
+def test_records_a_valid_counter():
+    height, txid = 800000, "a" * 64
+    body = b"\x89PNG\r\n\x1a\n fake png bytes"
+    block = make_block(height, txid, b"image/png", body)
+    issuances = {txid: [{"asset": "RAREPEPE", "status": "valid", "asset_events": "creation",
+                          "tx_index": 12345, "asset_longname": None, "issuer": "1IssuerAddr"}]}
+    assets = {"RAREPEPE": {"asset_id": "9876543210", "owner": "1OwnerAddr", "asset_longname": None,
+                            "divisible": True, "supply": 1000000000}}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        idx = build_indexer(block, issuances, assets, tmp)
+        recorded = idx.process_block(height)
+        assert recorded == 1, f"expected 1 recorded, got {recorded}"
+
+        row = idx.store.get_counter(0)
+        assert row is not None, "counter #0 not stored"
+        assert row["asset"] == "RAREPEPE"
+        assert row["asset_id"] == "9876543210"
+        assert row["content_type"] == "image/png"
+        assert row["content_length"] == len(body)
+        assert row["mint_txid"] == txid
+        assert row["block_index"] == height
+        assert row["block_position"] == 1  # second tx in block
+        assert row["owner"] == "1OwnerAddr"
+        assert row["divisible"] == 1  # stored as int
+        assert row["supply"] == 1000000000
+
+        # blob content round-trips by sha256
+        expected_sha = hashlib.sha256(body).hexdigest()
+        assert row["content_sha256"] == expected_sha
+        assert idx.store.read_blob(expected_sha) == body
+
+        assert idx.store.get_last_height(0) == height
+        idx.close()
+
+
+def test_skips_invalid_issuance():
+    height, txid = 800001, "b" * 64
+    block = make_block(height, txid, b"text/plain", b"hi")
+    issuances = {txid: [{"asset": "FOO", "status": "invalid", "asset_events": "creation",
+                          "tx_index": 1, "asset_longname": None, "issuer": "x"}]}
+    with tempfile.TemporaryDirectory() as tmp:
+        idx = build_indexer(block, issuances, {"FOO": {"asset_id": "5"}}, tmp)
+        assert idx.process_block(height) == 0
+        assert idx.store.count() == 0
+        idx.close()
+
+
+def test_skips_non_creation_reissuance():
+    height, txid = 800002, "c" * 64
+    block = make_block(height, txid, b"text/plain", b"hi")
+    issuances = {txid: [{"asset": "FOO", "status": "valid", "asset_events": "change_description",
+                          "tx_index": 1, "asset_longname": None, "issuer": "x"}]}
+    with tempfile.TemporaryDirectory() as tmp:
+        idx = build_indexer(block, issuances, {"FOO": {"asset_id": "5"}}, tmp)
+        assert idx.process_block(height) == 0
+        idx.close()
+
+
+def test_skips_when_no_issuance_in_tx():
+    height, txid = 800003, "d" * 64
+    block = make_block(height, txid, b"text/plain", b"hi")
+    with tempfile.TemporaryDirectory() as tmp:
+        idx = build_indexer(block, {}, {}, tmp)  # envelope present, but no issuance
+        assert idx.process_block(height) == 0
+        idx.close()
+
+
+def test_skips_reserved_asset():
+    height, txid = 800004, "e" * 64
+    block = make_block(height, txid, b"text/plain", b"hi")
+    issuances = {txid: [{"asset": "XCP", "status": "valid", "asset_events": "creation",
+                          "tx_index": 1, "asset_longname": None, "issuer": "x"}]}
+    with tempfile.TemporaryDirectory() as tmp:
+        idx = build_indexer(block, issuances, {"XCP": {"asset_id": "1"}}, tmp)
+        assert idx.process_block(height) == 0
+        idx.close()
+
+
+def test_empty_body_counter_is_recorded():
+    height, txid = 800005, "f" * 64
+    block = make_block(height, txid, b"image/png", b"")  # empty body
+    issuances = {txid: [{"asset": "EMPTYONE", "status": "valid", "asset_events": "creation",
+                          "tx_index": 7, "asset_longname": None, "issuer": "x"}]}
+    with tempfile.TemporaryDirectory() as tmp:
+        idx = build_indexer(block, issuances, {"EMPTYONE": {"asset_id": "42", "owner": "o"}}, tmp)
+        assert idx.process_block(height) == 1
+        row = idx.store.get_counter(0)
+        assert row["content_length"] == 0
+        assert row["content_sha256"] == hashlib.sha256(b"").hexdigest()
+        idx.close()
+
+
+if __name__ == "__main__":
+    failures = 0
+    for name, fn in sorted(globals().items()):
+        if name.startswith("test_") and callable(fn):
+            try:
+                fn()
+                print(f"PASS {name}")
+            except AssertionError as e:
+                failures += 1
+                print(f"FAIL {name}: {e}")
+    print(f"\n{'OK' if failures == 0 else f'{failures} FAILED'}")
+    raise SystemExit(1 if failures else 0)

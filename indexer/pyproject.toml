@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "counter"
+version = "0.1.0"
+description = "Counterparty Inscriptions (Bitcoin Counters) — CLI and indexer"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31.0",
+    "mnemonic>=0.20",
+    "ecdsa>=0.18",
+]
+
+[project.scripts]
+counter = "counter_indexer.__main__:main"
+
+[tool.setuptools]
+packages = ["counter_indexer"]
