@@ -41,15 +41,15 @@ pip install -r requirements.txt
 | `BTC_COOKIE_FILE` | `~/.bitcoin/.cookie` | bitcoind cookie (preferred auth) |
 | `BTC_RPC_USER` / `BTC_RPC_PASSWORD` | — | fallback if no cookie |
 | `CP_API_URL` | `http://127.0.0.1:4000` | Counterparty Core v2 API |
-| `COUNTER_DATA_DIR` | `indexer/data` | SQLite + blobs location |
-| `COUNTER_START_HEIGHT` | `0` | first block to scan |
+| `COUNTER_DATA_DIR` | `data/` | SQLite + blobs location |
+| `COUNTER_START_HEIGHT` | `709632` | first block to scan (taproot activation) |
 | `COUNTER_CONFIRMATIONS` | `0` | blocks behind tip to stay |
 | `COUNTER_POLL_INTERVAL` | `15` | seconds between tip polls in `run` |
 
 > Counters require a taproot script-path reveal, so none can exist before
-> taproot activation (mainnet block 709632). Scanning from 0 is correct but
-> slow; set `COUNTER_START_HEIGHT` near the tip for fast test iteration —
-> numbering within a fixed range is identical either way.
+> taproot activation (mainnet block 709632) — that's the default first-time
+> scan floor. Set `COUNTER_START_HEIGHT` higher (near the tip) for fast test
+> iteration; numbering within a fixed range is identical either way.
 >
 > **To rescan from scratch, delete the data dir first** (`rm -rf data`).
 > Stored sync progress always takes precedence over `COUNTER_START_HEIGHT`,

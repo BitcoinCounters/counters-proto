@@ -42,6 +42,12 @@ CREATION_EVENTS = frozenset({"creation"})
 # Assets that can never back a counter.
 RESERVED_ASSETS = frozenset({"BTC", "XCP"})
 
+# Taproot (BIP341) activation height on mainnet. A counter requires a taproot
+# script-path reveal, so none can exist before this block — it is the natural
+# floor for a first-time scan. Numbering is identical whether you start here or
+# at genesis; starting here just skips ~709k blocks that cannot match.
+TAPROOT_ACTIVATION_HEIGHT = 709632
+
 
 @dataclass
 class Config:
@@ -65,10 +71,12 @@ class Config:
     )
 
     # Indexing range / behaviour
-    start_height: int = field(default_factory=lambda: _env_int("COUNTER_START_HEIGHT", 0))
-    # Counters require a taproot script-path reveal, impossible before taproot
-    # activation (mainnet 709632). Scanning earlier is harmless but wasteful;
-    # numbering is identical either way. Override START_HEIGHT for fast tests.
+    # First-time scans start at taproot activation (counters can't predate it).
+    # Override COUNTER_START_HEIGHT to start higher for fast test iteration;
+    # stored sync progress always takes precedence over this on later runs.
+    start_height: int = field(
+        default_factory=lambda: _env_int("COUNTER_START_HEIGHT", TAPROOT_ACTIVATION_HEIGHT)
+    )
     confirmations: int = field(default_factory=lambda: _env_int("COUNTER_CONFIRMATIONS", 0))
     poll_interval: float = field(default_factory=lambda: _env_float("COUNTER_POLL_INTERVAL", 15.0))
 
