@@ -2,7 +2,7 @@
 
 Serves two things from one origin:
 
-  1. The bundled single-page explorer (this directory's index.html + logos).
+  1. The bundled single-page explorer (the static/ directory: index.html + logos).
   2. A small JSON API backed by the index Store:
 
        GET /counters?before=N&limit=K   -> {"counters": [record, ...]}  newest-first
@@ -35,7 +35,7 @@ from ..store import Store
 
 log = logging.getLogger("counters")
 
-STATIC_DIR = Path(__file__).resolve().parent
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 STATIC_TYPES = {
     ".html": "text/html; charset=utf-8",
     ".svg": "image/svg+xml",

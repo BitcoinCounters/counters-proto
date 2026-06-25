@@ -30,7 +30,7 @@ asset identity, and ownership.
 - A synced **Counterparty Core** v2 API
 
 ```bash
-pip install -r requirements.txt
+pip install -e .          # installs deps + the `counters` console command
 ```
 
 ## Configuration (environment variables)
@@ -132,9 +132,9 @@ counters/
     serve.py        server command entry point
   server/           web explorer + read-only JSON API
     app.py          stdlib HTTP server (static SPA + /counters /counter /content)
-    index.html      single-page explorer
-    counters-*.svg/png   logos + favicon
+    static/         index.html + logos/favicon (served assets)
 pyproject.toml      installs the `counters` console command
+docs/               protocol + CLI reference PDFs
 tests/
   test_envelope.py  parser unit tests
 ```
