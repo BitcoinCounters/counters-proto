@@ -1,6 +1,6 @@
 """Counterparty Inscriptions (Bitcoin Counters) indexer.
 
-MVP: scan Bitcoin witnesses for a "COUNTER" envelope, join with a successful
+MVP: scan Bitcoin witnesses for a "COUNT" envelope, join with a successful
 first issuance reported by Counterparty Core, assign a global sequential
 number, and store the record + file content.
 

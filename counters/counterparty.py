@@ -30,6 +30,16 @@ class CounterpartyClient:
         url = f"{self.base}{path}"
         try:
             resp = self._session.get(url, params=params, timeout=self.timeout)
+        except requests.ConnectionError as e:
+            raise CounterpartyError(
+                f"could not reach Counterparty at {self.base} — is counterparty-server "
+                f"running with its API enabled on that port?"
+            ) from e
+        except requests.Timeout as e:
+            raise CounterpartyError(
+                f"Counterparty API timed out at {self.base}; the server may still be "
+                f"starting up or catching up"
+            ) from e
         except requests.RequestException as e:
             raise CounterpartyError(f"Counterparty API request failed: {e}") from e
         if resp.status_code == 404:

@@ -58,6 +58,16 @@ class BitcoindClient:
         effective = self.timeout if timeout == -1.0 else timeout
         try:
             resp = self._session.post(url, json=payload, auth=self._auth, timeout=effective)
+        except requests.ConnectionError as e:
+            raise BitcoindError(
+                f"could not reach Bitcoin Core at {self.url} — is bitcoind running "
+                f"with server=1 and the RPC port reachable?"
+            ) from e
+        except requests.Timeout as e:
+            raise BitcoindError(
+                f"Bitcoin Core RPC timed out at {self.url} (method {method}); the node "
+                f"may be busy (e.g. mid-reindex)"
+            ) from e
         except requests.RequestException as e:
             raise BitcoindError(f"bitcoind RPC request failed: {e}") from e
         if resp.status_code not in (200, 500):
@@ -82,6 +92,16 @@ class BitcoindClient:
                 raise BitcoindError(
                     f"wallet {wallet!r} does not exist. "
                     f"Create it with: counters wallet create --name {wallet}"
+                )
+            if code == -5 and method == "getrawtransaction":
+                raise BitcoindError(
+                    f"transaction not found by Bitcoin Core: {msg} — non-wallet txs "
+                    f"require txindex=1 in bitcoin.conf (and a one-time reindex)."
+                )
+            if isinstance(msg, str) and "Insufficient funds" in msg:
+                raise BitcoindError(
+                    f"insufficient BTC in wallet {wallet or '(default)'} to cover the "
+                    f"amount plus the transaction fee — fund a wallet address and retry."
                 )
             raise BitcoindError(f"bitcoind RPC error for {method}: {msg}")
         return data["result"]

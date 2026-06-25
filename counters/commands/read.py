@@ -40,15 +40,39 @@ def cmd_status(config: Config) -> int:
     store = Store(config)
     try:
         try:
+            btc_h: int | None = btc.get_block_count()
+            print(f"bitcoind height     : {btc_h}")
+        except BitcoindError as e:
+            btc_h = None
+            print(f"bitcoind            : UNREACHABLE — {e}")
+
+        try:
             st = cp.status()
-        except CounterpartyError:
+        except CounterpartyError as e:
             st = {}
-        index_h = store.get_last_height(config.start_height)
-        print(f"bitcoind height     : {btc.get_block_count()}")
-        print(f"counterparty height : {st.get('counterparty_height', '?')}")
+            print(f"counterparty        : UNREACHABLE — {e}")
+        cp_h = st.get("counterparty_height")
+        print(f"counterparty height : {cp_h if cp_h is not None else '?'}")
         print(f"counterparty state  : {st.get('ledger_state', '?')}")
+
+        index_h = store.get_last_height(config.start_height)
         print(f"index height        : {index_h}")
         print(f"counters indexed    : {store.count()}")
+
+        # Actionable sync warnings.
+        warnings = []
+        if btc_h is not None and index_h is not None and btc_h - index_h > 0:
+            warnings.append(
+                f"index is {btc_h - index_h:,} block(s) behind bitcoind — run "
+                f"`counters index` (follow tip) or `counters sync` (once) to catch up."
+            )
+        if btc_h is not None and isinstance(cp_h, int) and btc_h - cp_h > 0:
+            warnings.append(
+                f"counterparty is {btc_h - cp_h:,} block(s) behind bitcoind — it is "
+                f"still processing; recently-minted counters may not appear yet."
+            )
+        for w in warnings:
+            print(f"! {w}")
     finally:
         store.close()
     return 0
