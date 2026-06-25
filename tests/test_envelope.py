@@ -10,7 +10,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from indexer.envelope import (  # noqa: E402
+from counters.envelope import (  # noqa: E402
     CounterEnvelope,
     find_counter_envelopes,
     parse_script,

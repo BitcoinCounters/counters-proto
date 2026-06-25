@@ -7,7 +7,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from indexer import tap
+from counters import tap
 
 
 def test_xonly_pubkey_known_points():

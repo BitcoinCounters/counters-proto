@@ -58,7 +58,7 @@ pip install -r requirements.txt
 ## Usage
 
 Invoke as `counter <command>` after `pip install -e .`, or equivalently
-`python -m indexer <command>`.
+`python -m counters <command>`.
 
 ```bash
 # --- indexing ---
@@ -108,21 +108,23 @@ python tests/test_envelope.py   # zero-dependency runner
 ## Layout
 
 ```
-indexer/
+counters/
   config.py         protocol constants + env-driven Config
   bitcoind.py       JSON-RPC client (cookie auth, getblock witnesses)
   envelope.py       script tokenizer + COUNT envelope parser
   counterparty.py   Core v2 client (the oracle)
   store.py          SQLite schema + content-hash blob store + queries
-  indexer.py        pipeline + run loops
-  commands.py       read commands: status / info / list / validate
-  wallet.py         wallet commands (create/restore/receive/balance/inscriptions)
-  inscribe.py       mint flow: compose issuance + build/sign commit & reveal
   builder.py        COUNT leaf script + P2TR commit-address derivation
   tap.py            BIP340 Schnorr + BIP341/342 taproot + tx serializer
   bip32.py          BIP32/BIP86 derivation (pure-Python RIPEMD160 + ecdsa)
   progress.py       ord-style progress bar
-  __main__.py       CLI command tree
+  __main__.py       CLI command tree (parser + dispatch)
+  indexer/          the indexing engine
+    indexer.py      pipeline + run loops
+  commands/         CLI command handlers
+    read.py         status / info / list / validate
+    wallet.py       create / restore / receive / balance / inscriptions
+    inscribe.py     mint flow: compose issuance + build/sign commit & reveal
 pyproject.toml      installs the `counter` console command
 tests/
   test_envelope.py  parser unit tests

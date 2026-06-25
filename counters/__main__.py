@@ -1,7 +1,7 @@
 """CLI entry point.
 
 Invoke as `counter <command>` (after `pip install -e .`) or, equivalently,
-`python -m indexer <command>`.
+`python -m counters <command>`.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ def _setup_logging(verbose: bool) -> None:
         level=logging.WARNING,
         format="%(asctime)s %(levelname)s %(name)s - %(message)s",
     )
-    logging.getLogger("indexer").setLevel(logging.DEBUG if verbose else logging.INFO)
+    logging.getLogger("counters").setLevel(logging.DEBUG if verbose else logging.INFO)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("requests").setLevel(logging.WARNING)
 

@@ -7,8 +7,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from indexer import builder
-from indexer.envelope import find_counter_envelopes
+from counters import builder
+from counters.envelope import find_counter_envelopes
 
 
 def _roundtrip(content_type: bytes, body: bytes):

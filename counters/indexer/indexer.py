@@ -19,14 +19,14 @@ import logging
 import signal
 import time
 
-from .bitcoind import BitcoindClient
-from .config import Config, RESERVED_ASSETS
-from .counterparty import CounterpartyClient
-from .envelope import find_counter_envelopes_in_tx
-from .progress import ProgressBar
-from .store import CounterRecord, Store
+from ..bitcoind import BitcoindClient
+from ..config import Config, RESERVED_ASSETS
+from ..counterparty import CounterpartyClient
+from ..envelope import find_counter_envelopes_in_tx
+from ..progress import ProgressBar
+from ..store import CounterRecord, Store
 
-log = logging.getLogger("indexer")
+log = logging.getLogger("counters")
 
 
 class Indexer:
