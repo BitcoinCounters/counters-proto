@@ -5,8 +5,10 @@ Serves two things from one origin:
   1. The bundled single-page explorer (the static/ directory: index.html + logos).
   2. A small JSON API backed by the index Store:
 
+       GET /status                      -> {"indexed": H, "count": N, "genesis": 0}
        GET /counters?before=N&limit=K   -> {"counters": [record, ...]}  newest-first
        GET /counter/<number|asset>      -> a single record (404 if unknown)
+       GET /block/<height>              -> {"block": H, "count": K, "counters": [...]}
        GET /content/<number>            -> the raw file bytes, with its stored MIME
 
 A "record" is the index row reshaped to the field names the frontend expects
@@ -113,11 +115,16 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
         try:
+            if path == "/status":
+                return self._status()
             if path == "/counters":
                 return self._api_list(parse_qs(parsed.query))
             m = re.fullmatch(r"/counter/(.+)", path)
             if m:
                 return self._api_counter(unquote(m.group(1)))
+            m = re.fullmatch(r"/block/(\d+)", path)
+            if m:
+                return self._block(int(m.group(1)))
             m = re.fullmatch(r"/content/(\d+)", path)
             if m:
                 return self._content(int(m.group(1)))
@@ -131,6 +138,31 @@ class Handler(BaseHTTPRequestHandler):
     do_HEAD = do_GET
 
     # --- API handlers ------------------------------------------------------
+
+    def _status(self) -> None:
+        store = Store(self.config)
+        try:
+            payload = {
+                "indexed": store.get_last_height(self.config.start_height),
+                "count": store.count(),
+                "genesis": 0,
+            }
+        finally:
+            store.close()
+        self._json(payload)
+
+    def _block(self, height: int) -> None:
+        store = Store(self.config)
+        try:
+            rows = store.list_by_block_range(height, height)
+            payload = {
+                "block": height,
+                "count": len(rows),
+                "counters": [record_dict(store, r) for r in rows],
+            }
+        finally:
+            store.close()
+        self._json(payload)
 
     def _api_list(self, qs: dict[str, list[str]]) -> None:
         try:

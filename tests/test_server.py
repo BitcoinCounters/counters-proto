@@ -38,6 +38,7 @@ def _seed_store(data_dir: str) -> Config:
             cp_tx_index=1, owner="bc1pstored", divisible=False, supply=1,
         ),
     )
+    store.set_last_height(800000, None)   # so /status reports a synced height
     store.commit()
     store.close()
     return cfg
@@ -76,6 +77,22 @@ def test_api_and_static():
         assert rec["size"] == 2
         assert rec["body"] == "hi"           # small text inlined
         assert rec["block"] == 800000 and rec["position"] == 3
+
+        # --- /status: latest synced height + total count ---
+        status, ctype, body = _get(base, "/status")
+        assert status == 200 and "application/json" in ctype
+        st = json.loads(body)
+        assert st["count"] == 1 and st["indexed"] == 800000
+
+        # --- /block/<height>: counters minted in a block ---
+        status, _, body = _get(base, "/block/800000")
+        assert status == 200
+        blk = json.loads(body)
+        assert blk["block"] == 800000 and blk["count"] == 1
+        assert blk["counters"][0]["number"] == 0
+        # an empty block reports zero, not an error
+        empty = json.loads(_get(base, "/block/123456")[2])
+        assert empty["count"] == 0 and empty["counters"] == []
 
         # --- /counter/<number> and /counter/<asset> ---
         assert _get(base, "/counter/0")[0] == 200

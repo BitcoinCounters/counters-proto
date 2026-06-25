@@ -144,6 +144,8 @@ tests/
 - `send` — transfer a counter (Counterparty asset) via compose + Core sign
 - Reorg detection + renumbering with a finality depth
 - Frozen marker/genesis height + canonical test vectors
+- Gate indexing on Counterparty Core's processed height (don't index ahead of
+  the oracle when Core lags bitcoind, or issuances for a block may be missed)
 
 > `inscribe` is implemented (commit/reveal + OP_RETURN issuance). Every mint is
 > package-validated with `testmempoolaccept` before any funds move; `--dry-run`
