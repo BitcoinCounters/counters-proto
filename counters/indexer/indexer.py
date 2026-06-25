@@ -19,7 +19,7 @@ import logging
 import signal
 import time
 
-from ..bitcoind import BitcoindClient
+from ..bitcoind import BitcoindClient, BitcoindError
 from ..config import Config, RESERVED_ASSETS
 from ..counterparty import CounterpartyClient
 from ..envelope import find_counter_envelopes_in_tx
@@ -139,6 +139,12 @@ class Indexer:
         sha = self.store.store_blob(env.body)
         number = self.store.next_number()
         content_type = env.content_type.decode("utf-8", errors="replace") if env.content_type else None
+        # Mint fee/vsize are enrichment, never blockers: a fee-fetch failure must
+        # not stop a counter from being recorded.
+        try:
+            fee, vsize = self.btc.get_fee_and_vsize(txid, tx=tx)
+        except (BitcoindError, KeyError, IndexError, TypeError):
+            fee, vsize = None, None
         rec = CounterRecord(
             asset=asset,
             asset_id=str(asset_id) if asset_id is not None else None,
@@ -153,6 +159,8 @@ class Indexer:
             owner=asset_info.get("owner") or issuance.get("issuer"),
             divisible=asset_info.get("divisible"),
             supply=asset_info.get("supply"),
+            fee=fee,
+            vsize=vsize,
         )
         self.store.add_counter(number, rec)
         self._notify(

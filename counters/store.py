@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS counters (
     owner           TEXT,
     divisible       INTEGER,
     supply          INTEGER,
+    fee             INTEGER,
+    vsize           INTEGER,
     created_at      TEXT    DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_counters_asset ON counters(asset);
@@ -59,6 +61,8 @@ class CounterRecord:
     owner: str | None
     divisible: bool | None = None
     supply: int | None = None
+    fee: int | None = None
+    vsize: int | None = None
 
 
 class Store:
@@ -75,7 +79,7 @@ class Store:
         """Add columns introduced after a DB was first created (CREATE TABLE
         IF NOT EXISTS never alters an existing table)."""
         cols = {r["name"] for r in self.db.execute("PRAGMA table_info(counters)")}
-        for col in ("divisible", "supply"):
+        for col in ("divisible", "supply", "fee", "vsize"):
             if col not in cols:
                 self.db.execute(f"ALTER TABLE counters ADD COLUMN {col} INTEGER")
 
@@ -124,8 +128,8 @@ class Store:
             INSERT INTO counters (
                 number, asset, asset_id, asset_longname, content_type,
                 content_sha256, content_length, mint_txid, block_index,
-                block_position, cp_tx_index, owner, divisible, supply
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                block_position, cp_tx_index, owner, divisible, supply, fee, vsize
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 number,
@@ -142,6 +146,8 @@ class Store:
                 rec.owner,
                 None if rec.divisible is None else int(rec.divisible),
                 rec.supply,
+                rec.fee,
+                rec.vsize,
             ),
         )
 
@@ -151,6 +157,15 @@ class Store:
         self.db.execute(
             "UPDATE counters SET divisible = ?, supply = ? WHERE number = ?",
             (None if divisible is None else int(divisible), supply, number),
+        )
+        self.db.commit()
+
+    def set_fee(self, number: int, fee: int | None, vsize: int | None) -> None:
+        """Backfill mint fee/vsize for an existing record (enrichment computed
+        lazily the first time a counter is viewed, like set_asset_meta)."""
+        self.db.execute(
+            "UPDATE counters SET fee = ?, vsize = ? WHERE number = ?",
+            (fee, vsize, number),
         )
         self.db.commit()
 

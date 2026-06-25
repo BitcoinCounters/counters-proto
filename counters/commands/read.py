@@ -86,9 +86,20 @@ def cmd_info(
 
         owner = _current_owner(config, row["asset"], row["owner"])
 
+        # Mint fee/vsize are computed on demand from bitcoind and cached.
+        fee, vsize = row["fee"], row["vsize"]
+        if fee is None:
+            try:
+                fee, vsize = BitcoindClient(config).get_fee_and_vsize(row["mint_txid"])
+                store.set_fee(row["number"], fee, vsize)
+            except (BitcoindError, KeyError, IndexError, TypeError):
+                pass
+
         if as_json:
             record = {k: row[k] for k in row.keys()}
             record["current_owner"] = owner
+            record["fee"] = fee
+            record["vsize"] = vsize
             print(json.dumps(record, indent=2))
             return 0
 
@@ -101,6 +112,9 @@ def cmd_info(
         print(f"sha256       : {row['content_sha256']}")
         print(f"mint_txid    : {row['mint_txid']}")
         print(f"block        : {row['block_index']} (position {row['block_position']})")
+        if fee is not None:
+            rate = f" ({fee / vsize:.1f} sat/vB)" if vsize else ""
+            print(f"fee          : {fee:,} sats{rate}")
     finally:
         store.close()
     return 0

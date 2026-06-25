@@ -91,6 +91,9 @@ class FakeBitcoind:
                 return b
         raise KeyError(block_hash)
 
+    def get_fee_and_vsize(self, txid: str, tx: dict | None = None):
+        return 1000, 200   # fixed enrichment; real client queries prevouts
+
 
 class FakeCounterparty:
     """Mirrors the real client's interface used by the indexer."""
@@ -147,6 +150,7 @@ def test_records_a_valid_counter():
         assert row["owner"] == "1OwnerAddr"
         assert row["divisible"] == 1  # stored as int
         assert row["supply"] == 1000000000
+        assert row["fee"] == 1000 and row["vsize"] == 200  # mint fee captured
 
         # blob content round-trips by sha256
         expected_sha = hashlib.sha256(body).hexdigest()

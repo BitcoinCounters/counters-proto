@@ -39,6 +39,7 @@ def _seed_store(data_dir: str) -> Config:
         ),
     )
     store.set_last_height(800000, None)   # so /status reports a synced height
+    store.set_fee(0, 333, 111)            # mint fee/vsize (no bitcoind needed in tests)
     store.commit()
     store.close()
     return cfg
@@ -77,6 +78,7 @@ def test_api_and_static():
         assert rec["size"] == 2
         assert rec["body"] == "hi"           # small text inlined
         assert rec["block"] == 800000 and rec["position"] == 3
+        assert rec["fee"] == 333 and rec["vsize"] == 111
 
         # --- /status: latest synced height + total count ---
         status, ctype, body = _get(base, "/status")
@@ -95,7 +97,8 @@ def test_api_and_static():
         assert empty["count"] == 0 and empty["counters"] == []
 
         # --- /counter/<number> and /counter/<asset> ---
-        assert _get(base, "/counter/0")[0] == 200
+        c0 = json.loads(_get(base, "/counter/0")[2])
+        assert c0["fee"] == 333 and c0["vsize"] == 111   # already stored, no backfill
         assert _get(base, "/counter/TESTASSET")[0] == 200
         assert _get(base, "/counter/999")[0] == 404
 

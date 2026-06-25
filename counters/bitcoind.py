@@ -13,6 +13,8 @@ import requests
 
 from .config import Config
 
+COIN = 100_000_000  # sats per BTC
+
 
 class BitcoindError(Exception):
     pass
@@ -122,3 +124,23 @@ class BitcoindClient:
     def get_block_header(self, block_hash: str) -> dict:
         """Header object including 'height' and 'confirmations'."""
         return self._call("getblockheader", [block_hash])
+
+    def get_fee_and_vsize(self, txid: str, tx: dict | None = None) -> tuple[int | None, int | None]:
+        """Mining fee (sats) and virtual size (vBytes) for a tx.
+
+        bitcoind doesn't report a confirmed tx's fee, so we sum the outputs and
+        subtract the inputs (each input's value comes from its prevout tx, which
+        needs txindex=1). `vsize` is read straight off the decoded tx. Pass an
+        already-decoded `tx` to save one RPC. Returns (None, vsize) for coinbase.
+        """
+        if tx is None:
+            tx = self.get_raw_transaction(txid, verbose=True)
+        vsize = tx.get("vsize")
+        out_sats = sum(round(o.get("value", 0) * COIN) for o in tx.get("vout", []))
+        in_sats = 0
+        for vin in tx.get("vin", []):
+            if "txid" not in vin:  # coinbase has no prevout to price
+                return None, vsize
+            prev = self.get_raw_transaction(vin["txid"], verbose=True)
+            in_sats += round(prev["vout"][vin["vout"]]["value"] * COIN)
+        return in_sats - out_sats, vsize
