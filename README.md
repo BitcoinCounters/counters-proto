@@ -16,14 +16,15 @@ For each block (ascending):
    (`OP_FALSE OP_IF "COUNT" <0x01 content_type> <0x00> <body…> OP_ENDIF …`).
 2. **Join** — a tx with **exactly one** valid envelope is matched against
    Counterparty Core's issuances for that block.
-3. **Validate (via Core, the oracle)** — keep it only if the issuance is
+3. **Validate (via Counterparty Core, the oracle)** — keep it only if the issuance is
    `status == "valid"`, is the asset's **first/creation** issuance
    (`asset_events` contains `creation`), and the asset is not `BTC`/`XCP`.
 4. **Number & store** — assign the next gap-free number (from 0), write the
    file to a content-addressed blob store, and insert the record into SQLite.
 
-We never reimplement Counterparty consensus — Core decides issuance validity,
-asset identity, and ownership.
+We never reimplement Counterparty consensus — **Counterparty Core** decides
+issuance validity, asset identity, and ownership. ("Bitcoin Core" is the
+separate Bitcoin node; the two are always named in full to avoid confusion.)
 
 ## Requirements
 
