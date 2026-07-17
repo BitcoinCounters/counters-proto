@@ -211,6 +211,12 @@
   .doc ul{color:var(--dim);margin:0 0 16px;padding-left:0;list-style:none}
   .doc ul li{padding-left:24px;position:relative;margin-bottom:9px}
   .doc ul li::before{content:attr(data-n);position:absolute;left:0;top:0;font-family:var(--mono);font-size:11px;color:var(--copper);top:.18em}
+  .doc .tablewrap{overflow-x:auto;margin:0 0 18px}
+  .doc table{border-collapse:collapse;width:100%;font-size:13px}
+  .doc th,.doc td{border:1px solid var(--line2);padding:8px 12px;text-align:left;vertical-align:top}
+  .doc th{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:500;background:var(--bg2);white-space:nowrap}
+  .doc td{color:var(--dim)}
+  .doc tbody tr:first-child td{color:var(--ink)}
   .doc .callout{background:var(--card);border-left:2px solid var(--patina);border-radius:0 10px 10px 0;padding:13px 18px;margin:0 0 18px;color:var(--dim);font-size:14px}
   .doc .callout b{color:var(--patina)}
 
@@ -312,122 +318,7 @@
 </main>
 
 <!-- ======= DOCS ======= -->
-<main id="view-docs" class="hidden">
-  <div class="wrap docs">
-    <aside class="toc">
-      <div>Contents</div>
-      <a href="#/docs#what">What a counter is</a>
-      <a href="#/docs#envelope">The COUNT envelope</a>
-      <a href="#/docs#own">Ownership</a>
-      <a href="#/docs#number">Numbering</a>
-      <a href="#/docs#setup">Setup</a>
-      <a href="#/docs#mint">Minting</a>
-      <a href="#/docs#valid">Validity</a>
-      <a href="#/docs#reinscribe">Reinscriptions</a>
-      <a href="#/docs#api">Server API</a>
-      <a href="#/docs#source">Source</a>
-      <a href="#/docs#community">Community</a>
-    </aside>
-    <div class="doc"><article>
-      <h2 id="what">What a counter is</h2>
-      <p>A <strong>Bitcoin counter</strong> is a numbered inscription — a file committed to Bitcoin in witness data and linked to a Counterparty asset. Counters are numbered in order of creation.</p>
-      <p>Any Counterparty asset can carry a counter — named, unnamed, divisible, new, or existing — and one asset can hold many.</p>
-      <p>The asset does the heavy lifting: identity, ownership, naming, and transfer are all Counterparty's job. The protocol stays small — it defines only the COUNT envelope, the validity rules, and the numbering.</p>
-      <p>To mint a counter, include a <strong>valid COUNT envelope</strong> — the inscription data plus the Counterparty asset name — in a transaction. The indexer scans the blockchain, finds every valid inscription, and numbers it; the server renders this explorer and its docs.</p>
-
-      <h2 id="envelope">The COUNT envelope</h2>
-      <p>The COUNT envelope is a small Bitcoin script — opcodes in the transaction's witness — that carries the inscription as data:</p>
-      <pre>OP_FALSE OP_IF
-  OP_PUSH <span class="k">"COUNT"</span>          <span class="c"># marker</span>
-  OP_PUSH 0x01           <span class="c"># tag 1 = content type</span>
-  OP_PUSH &lt;content_type&gt;  <span class="c"># MIME, e.g. image/png</span>
-  OP_PUSH 0x02           <span class="c"># tag 2 = target asset</span>
-  OP_PUSH &lt;asset&gt;         <span class="c"># e.g. RAREPEPE or A9542…</span>
-  OP_0                   <span class="c"># separator; body begins</span>
-  OP_PUSH &lt;file bytes&gt;    <span class="c"># ≤520 bytes per push</span>
-OP_ENDIF
-&lt;pubkey&gt; OP_CHECKSIG</pre>
-      <p>The <code>OP_FALSE OP_IF … OP_ENDIF</code> block never runs — it is pure data; <code>&lt;pubkey&gt; OP_CHECKSIG</code> is the real spend condition. As a taproot leaf script, it is committed in the commit transaction and revealed in the reveal's witness, where the bytes land on-chain (see Minting). It follows ord's envelope structure, so existing parsers work unchanged.</p>
-      <p>Four things travel in it — the <code>COUNT</code> marker, the MIME type, the <strong>target asset</strong> name, and the file. Naming the asset makes the counter envelope-bound: the indexer trusts the envelope's asset and binds to it (see Validity). No pointer, parent, or metadata; the asset already carries those.</p>
-
-      <h2 id="own">Ownership</h2>
-      <p>Whoever holds the Counterparty asset balance owns the counter. Transfer is an ordinary Counterparty send of that asset; the witness file never moves — it stays as permanent provenance pinned to the mint transaction.</p>
-
-      <h2 id="number">Numbering</h2>
-      <p>Counters are numbered globally, gap-free, starting at <strong>0</strong>, ordered by block height then position within the block — the same scheme Ordinals uses. Only <em>valid</em> counters get a number.</p>
-      <div class="callout"><b>Genesis is data-defined.</b> There is no activation height. Counter #0 is simply the first valid counter the indexer finds on-chain.</div>
-
-      <h2 id="setup">Setup</h2>
-      <p>The indexer is the only part that needs backends; the explorer alone runs without them. To index, run two fully-synced nodes and point Counters at them.</p>
-      <p><strong>1 · Bitcoin Core.</strong> A synced <code>bitcoind</code> with a transaction index and RPC enabled:</p>
-      <pre><span class="c"># bitcoin.conf</span>
-txindex=1     <span class="c"># required: look up any tx by id</span>
-server=1      <span class="c"># enable JSON-RPC</span>
-<span class="c"># auth via the cookie file (default) or rpcuser/rpcpassword</span></pre>
-      <p><strong>2 · Counterparty Core.</strong> The oracle that decides issuance validity, asset identity, and ownership. Run and sync it (v2 API, default port <code>4000</code>) per its official docs: <a href="https://github.com/CounterpartyXCP/counterparty-core" target="_blank" rel="noopener" class="out">github.com/CounterpartyXCP/counterparty-core ↗</a>. Counters only reads from it — it never reimplements consensus.</p>
-      <p><strong>3 · Wire them up.</strong> Tell Counters where the backends are (env vars, or copy <code>.env.example</code> to <code>.env</code>), then verify both are detected:</p>
-      <pre><span class="c"># point at your nodes (defaults shown)</span>
-BTC_RPC_URL=http://127.0.0.1:8332
-CP_API_URL=http://127.0.0.1:4000
-
-<span class="c"># confirm bitcoind + Counterparty + index heights line up</span>
-counters status
-
-<span class="c"># then index, and serve the explorer</span>
-counters index --from-genesis
-counters server</pre>
-      <div class="callout"><b>Both nodes must be fully synced.</b> The indexer never advances past Counterparty's height, so a lagging Core simply slows indexing rather than producing wrong results.</div>
-
-      <h2 id="mint">Minting</h2>
-      <p>A mint is a taproot commit/reveal pair, built and broadcast together. The reveal carries the file in its witness and, for a new asset, the Counterparty issuance as a plain <code>OP_RETURN</code> (a reinscription onto an existing asset carries no issuance — see below).</p>
-      <pre><span class="c"># create a wallet (prints a seed phrase once)</span>
-counters wallet create --name me
-
-<span class="c"># inscribe a file as a free numeric asset…</span>
-counters wallet --name me inscribe --file cat.png
-
-<span class="c"># …or as a named asset (costs 0.5 XCP)</span>
-counters wallet --name me inscribe --file cat.png --asset MYCOUNTER</pre>
-
-      <h2 id="valid">Validity</h2>
-      <p>A transaction records a counter when all hold:</p>
-      <ul>
-        <li data-n="1">its witness has a well-formed <code>COUNT</code> envelope, and <strong>exactly one</strong> is present across the whole transaction;</li>
-        <li data-n="2">the counter <strong>binds</strong> to an asset (below);</li>
-        <li data-n="3">that asset is not BTC or XCP.</li>
-      </ul>
-      <p><strong>Binding is envelope-first.</strong> The envelope names its asset (tag <code>0x02</code>), and the counter binds to it when either:</p>
-      <ul>
-        <li data-n="a">a Counterparty issuance in the <strong>same transaction successfully creates</strong> that asset — a <em>creation</em>; or</li>
-        <li data-n="b">the asset <strong>already exists</strong> and the transaction is authorised by its owner — a <em>reinscription</em> (see below).</li>
-      </ul>
-      <p>If the named asset doesn't resolve either way — or a legacy envelope names none — the counter falls back to whatever asset the transaction issues. Otherwise it isn't a counter. Validity depends on Counterparty's verdict, not an explorer's listing — an asset can appear indexed yet be an invalid issuance.</p>
-
-      <h2 id="reinscribe">Reinscriptions</h2>
-      <p>A counter can also be attached to an <strong>existing</strong> asset you already own — a <em>reinscription</em>. Like every counter, its envelope names the asset (tag <code>0x02</code>); what makes it a reinscription is that the asset already exists and the transaction carries <strong>no Counterparty message</strong>. It's authorised on-chain by spending an input from the asset's <strong>owner (issuance-rights holder) as of that block</strong> — <em>ownership</em>, not token balance, checked at the height of the inscription so a later transfer can't change the verdict.</p>
-      <p>Each reinscription is a new, permanently-numbered counter, so one asset can back many. The lowest-numbered counter on an asset is its <em>original</em>; later ones are reinscriptions, and a counter's page lists them all.</p>
-      <pre><span class="c"># attach a counter to an asset you own (no new asset, no XCP)</span>
-counters wallet --name me inscribe --file v2.png --asset RAREPEPE --reinscribe</pre>
-
-      <h2 id="api">Server API</h2>
-      <p>This explorer reads these endpoints from <code>counters server</code>:</p>
-      <ul>
-        <li data-n="›"><code>GET /status</code> — latest synced block + total counter count</li>
-        <li data-n="›"><code>GET /counters?before=N&amp;limit=K</code> — recent counters</li>
-        <li data-n="›"><code>GET /counter/&lt;number|asset&gt;</code> — one counter's record</li>
-        <li data-n="›"><code>GET /block/&lt;height&gt;</code> — counters minted in a block</li>
-        <li data-n="›"><code>GET /content/&lt;number&gt;</code> — the raw file, served with its stored MIME</li>
-      </ul>
-      <p>Point the <code>API</code> constant at the top of this file's script at your server and the sample data is replaced by live results.</p>
-
-      <h2 id="source">Source</h2>
-      <p>Counters is open source — the indexer, CLI, and this explorer all live in one repository: <a href="https://github.com/BitcoinCounters/counters-proto" target="_blank" rel="noopener" class="out">github.com/BitcoinCounters/counters-proto ↗</a>.</p>
-
-      <h2 id="community">Community</h2>
-      <p>Join the conversation on Telegram: <a href="https://t.me/BitcoinCounters" target="_blank" rel="noopener" class="out">t.me/BitcoinCounters ↗</a>.</p>
-    </article></div>
-  </div>
-</main>
+<main id="view-docs" class="hidden"></main>
 
 <footer>
   <div class="wrap frow">
@@ -646,12 +537,92 @@ function route(){
   if(m=h.match(/^#\/c\/(.+)$/)){renderDetail(decodeURIComponent(m[1]));}
   else if(m=h.match(/^#\/b\/(\d+)$/)){renderBlock(m[1]);}
   else if(h.startsWith('#/docs')){showView('docs');
-    const id=h.split('#')[2];
-    if(id){const t=document.getElementById(id);if(t)setTimeout(()=>t.scrollIntoView({behavior:'smooth',block:'start'}),40);}
+    loadDocs().then(()=>{
+      const id=h.split('#')[2];
+      if(id){const t=document.getElementById(id);if(t)setTimeout(()=>t.scrollIntoView({behavior:'smooth',block:'start'}),40);}
+    });
   }
   else{renderExplore();}
 }
 window.addEventListener('hashchange',route);
+
+/* Docs live in static/docs.md — plain markdown, edited without touching this
+   file — fetched once on first visit and rendered by the mini-renderer below.
+   Conventions: "## Title {#anchor}" = section (TOC auto-generated);
+   "> **Lead.** text" = callout; fences highlight trailing # comments;
+   ordered lists get copper numbers, bullets get ›. */
+/* md-render-start */
+function mdToHtml(md){
+  const escMd=s=>s.replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[m]));
+  const inline=s=>escMd(s)
+    .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>')
+    .replace(/\*([^*]+)\*/g,'<em>$1</em>')
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g,(_,t,u)=>
+      `<a href="${u}"${/^https?:/.test(u)?' target="_blank" rel="noopener" class="out"':''}>${t}</a>`);
+  const out=[],toc=[];
+  let para=[],list=null,quote=[],fence=null,table=null;
+  const flushPara=()=>{if(para.length){out.push(`<p>${inline(para.join(' '))}</p>`);para=[];}};
+  const flushList=()=>{if(list){out.push('<ul>'+list.map(([n,t])=>`<li data-n="${n}">${inline(t)}</li>`).join('')+'</ul>');list=null;}};
+  const flushQuote=()=>{if(quote.length){out.push(`<div class="callout">${inline(quote.join(' '))}</div>`);quote=[];}};
+  const flushTable=()=>{
+    if(!table)return;
+    // A pipe table needs a header row and a |---|--- separator; otherwise the
+    // buffered lines were just pipe-bearing prose, so emit them as paragraphs.
+    if(table.length>=2 && table[1].includes('-') && /^[\s:|-]+$/.test(table[1])){
+      const cells=r=>r.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+      const head='<tr>'+cells(table[0]).map(c=>`<th>${inline(c)}</th>`).join('')+'</tr>';
+      const body=table.slice(2).map(r=>'<tr>'+cells(r).map(c=>`<td>${inline(c)}</td>`).join('')+'</tr>').join('');
+      out.push(`<div class="tablewrap"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>`);
+    }else{
+      table.forEach(r=>out.push(`<p>${inline(r)}</p>`));
+    }
+    table=null;
+  };
+  const flushAll=()=>{flushPara();flushList();flushQuote();flushTable();};
+  for(const line of md.replace(/<!--[\s\S]*?-->/g,'').split('\n')){
+    if(fence!==null){
+      if(/^```/.test(line)){out.push('<pre>'+fence.join('\n')+'</pre>');fence=null;}
+      else fence.push(escMd(line).replace(/(#.*)$/,'<span class="c">$1</span>'));
+      continue;
+    }
+    let m;
+    if(m=line.match(/^```/)){flushAll();fence=[];}
+    else if(/^\s*\|.*\|\s*$/.test(line)){flushPara();flushList();flushQuote();(table=table||[]).push(line);}
+    else if(m=line.match(/^##\s+(.+?)(?:\s*\{#([\w-]+)\})?\s*$/)){
+      flushAll();
+      const id=m[2]||m[1].toLowerCase().replace(/[^\w]+/g,'-').replace(/^-|-$/g,'');
+      toc.push(`<a href="#/docs#${id}">${inline(m[1])}</a>`);
+      out.push(`<h2 id="${id}">${inline(m[1])}</h2>`);
+    }
+    else if(m=line.match(/^###\s+(.+)$/)){flushAll();out.push(`<h3>${inline(m[1])}</h3>`);}
+    else if(m=line.match(/^>\s?(.*)$/)){flushPara();flushList();flushTable();if(m[1])quote.push(m[1]);}
+    else if(m=line.match(/^(\d+)\.\s+(.+)$/)){flushPara();flushQuote();flushTable();(list=list||[]).push([m[1],m[2]]);}
+    else if(m=line.match(/^-\s+(.+)$/)){flushPara();flushQuote();flushTable();(list=list||[]).push(['›',m[1]]);}
+    else if(/^\s{2,}\S/.test(line)&&list){list[list.length-1][1]+=' '+line.trim();}
+    else if(!line.trim()){flushAll();}
+    else{flushList();flushQuote();flushTable();para.push(line.trim());}
+  }
+  flushAll();
+  if(fence!==null)out.push('<pre>'+fence.join('\n')+'</pre>');
+  return {html:out.join('\n'),toc:toc.join('')};
+}
+/* md-render-end */
+let docsLoaded=false;
+async function loadDocs(){
+  if(docsLoaded) return;
+  try{
+    const r=await fetch('docs.md');
+    if(!r.ok) throw new Error(r.status);
+    const {html,toc}=mdToHtml(await r.text());
+    el('view-docs').innerHTML=
+      `<div class="wrap docs"><aside class="toc"><div>Contents</div>${toc}</aside>`+
+      `<div class="doc"><article>${html}</article></div></div>`;
+    docsLoaded=true;
+  }catch(_){
+    el('view-docs').innerHTML='<div class="wrap docs"><div class="empty"><b>Docs unavailable</b>Serve the explorer with <code>counters server</code> to read the docs.</div></div>';
+  }
+}
 
 function doSearch(e){
   e.preventDefault();
