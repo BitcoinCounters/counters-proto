@@ -1,7 +1,7 @@
 """`counters-proto server` — serve the explorer SPA + read-only JSON API, and (by
 default) run the indexer alongside it so the explorer stays live.
 
-Thin wrapper: argument parsing/dispatch lives in counters.__main__; the actual
+Thin wrapper: argument parsing/dispatch lives in counters_proto.__main__; the actual
 HTTP server (routes, static assets, record shaping) lives in counters.server.
 """
 

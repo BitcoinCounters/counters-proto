@@ -1,6 +1,6 @@
 """Unit tests for CounterpartyClient helpers that don't need a live node."""
 
-from counters.counterparty import CounterpartyClient
+from counters_proto.counterparty import CounterpartyClient
 
 
 def test_is_creation_plain():

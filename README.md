@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="counters/server/static/counters-logo-512.png" alt="Bitcoin Counters" width="160">
+  <img src="counters_proto/server/static/counters-logo-512.png" alt="Bitcoin Counters" width="160">
 </p>
 
 # Bitcoin Counters — Indexer & Wallet
@@ -113,7 +113,7 @@ Core running on the host.
 ## Usage
 
 Invoke as `counters-proto <command>` after `pip install -e .`, or equivalently
-`python -m counters <command>`.
+`python -m counters_proto <command>`.
 
 ```bash
 # --- indexing ---
@@ -178,7 +178,7 @@ python tests/test_envelope.py   # zero-dependency runner
 ## Layout
 
 ```
-counters/
+counters_proto/
   config.py         protocol constants + env-driven Config
   bitcoind.py       JSON-RPC client (cookie auth, getblock witnesses)
   envelope.py       script tokenizer + COUNT envelope parser

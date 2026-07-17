@@ -11,8 +11,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import counters.commands.send as S  # noqa: E402
-from counters.commands.send import _find_source, _to_raw_quantity  # noqa: E402
+import counters_proto.commands.send as S  # noqa: E402
+from counters_proto.commands.send import _find_source, _to_raw_quantity  # noqa: E402
 
 
 def test_to_raw_quantity_divisible():

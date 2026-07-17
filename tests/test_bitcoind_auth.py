@@ -9,8 +9,8 @@ import time
 
 import pytest
 
-from counters.bitcoind import BitcoindClient, BitcoindError
-from counters.config import Config
+from counters_proto.bitcoind import BitcoindClient, BitcoindError
+from counters_proto.config import Config
 
 
 def _config(cookie_path, user="", password="") -> Config:

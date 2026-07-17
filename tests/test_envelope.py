@@ -10,7 +10,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from counters.envelope import (  # noqa: E402
+from counters_proto.envelope import (  # noqa: E402
     CounterEnvelope,
     find_counter_envelopes,
     parse_script,
@@ -134,7 +134,7 @@ def test_asset_tag_subasset_longname():
 
 def test_builder_reinscription_roundtrips_through_parser():
     # The real builder must produce an envelope the parser reads back exactly.
-    from counters import builder
+    from counters_proto import builder
 
     body = b"\x89PNG reinscribed"
     leaf = builder.build_envelope(b"image/png", body, asset=b"A95428956661682177")
@@ -146,7 +146,7 @@ def test_builder_reinscription_roundtrips_through_parser():
 
 
 def test_builder_creation_has_no_asset():
-    from counters import builder
+    from counters_proto import builder
 
     leaf = builder.build_envelope(b"text/plain", b"hi")
     assert find_counter_envelopes(leaf)[0].asset == b""

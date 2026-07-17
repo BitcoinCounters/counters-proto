@@ -14,8 +14,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from counters.bitcoind import BitcoindError  # noqa: E402
-from counters.commands.inscribe import _wallet_change_address  # noqa: E402
+from counters_proto.bitcoind import BitcoindError  # noqa: E402
+from counters_proto.commands.inscribe import _wallet_change_address  # noqa: E402
 
 
 class _TaprootBtc:

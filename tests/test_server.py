@@ -19,9 +19,9 @@ from http.server import ThreadingHTTPServer
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from counters.config import Config  # noqa: E402
-from counters.server import app as appmod  # noqa: E402
-from counters.store import CounterRecord, Store  # noqa: E402
+from counters_proto.config import Config  # noqa: E402
+from counters_proto.server import app as appmod  # noqa: E402
+from counters_proto.store import CounterRecord, Store  # noqa: E402
 
 
 def _seed_store(data_dir: str) -> Config:

@@ -16,10 +16,10 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from counters.config import Config  # noqa: E402
-from counters.counterparty import CounterpartyClient  # noqa: E402
-from counters.indexer import Indexer  # noqa: E402
-from counters.store import Store  # noqa: E402
+from counters_proto.config import Config  # noqa: E402
+from counters_proto.counterparty import CounterpartyClient  # noqa: E402
+from counters_proto.indexer import Indexer  # noqa: E402
+from counters_proto.store import Store  # noqa: E402
 
 
 # --- script/witness builders (canonical COUNT envelope) --------------------
@@ -373,7 +373,7 @@ def test_pepeme_reinscription_from_real_builder_is_indexed():
     input. This proves the builder -> envelope -> indexer contract for the real
     reinscription path, so the PEPEME counter is picked up once its reveal
     confirms and the owner is verified at the block height."""
-    from counters import builder
+    from counters_proto import builder
 
     height, txid = 800300, "ee" * 32
     owner = "bc1pPepemeOwner"
@@ -413,7 +413,7 @@ def test_pepeme_reinscription_from_real_builder_is_indexed():
 def test_inscription_cost_sums_commit_and_reveal():
     """get_inscription_cost = reveal fee/vsize + the commit's, where the commit
     is the prevout of the envelope-bearing (script-path) input."""
-    from counters.bitcoind import BitcoindClient
+    from counters_proto.bitcoind import BitcoindClient
 
     leaf = counter_leaf_script(b"text/plain", b"hi")
     reveal_tx = {

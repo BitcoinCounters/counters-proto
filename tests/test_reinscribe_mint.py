@@ -14,8 +14,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from counters import builder  # noqa: E402
-from counters.commands.inscribe import _prepare_reinscribe  # noqa: E402
+from counters_proto import builder  # noqa: E402
+from counters_proto.commands.inscribe import _prepare_reinscribe  # noqa: E402
 
 COIN = 100_000_000
 OWNER = "bc1powneraddressxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
@@ -76,7 +76,7 @@ def test_prepare_reinscribe_routes_change_to_owner_no_op_return():
 def test_reinscribe_envelope_carries_asset_tag():
     # the mint must embed the target asset so the indexer can bind it
     insc = builder.build_inscription(b"text/plain", b"x", asset=b"PARENT.CHILD")
-    from counters.envelope import find_counter_envelopes
+    from counters_proto.envelope import find_counter_envelopes
     envs = find_counter_envelopes(insc.leaf)
     assert len(envs) == 1 and envs[0].asset == b"PARENT.CHILD"
 
@@ -90,8 +90,8 @@ def test_estimate_reveal_vsize_accounts_for_legacy_p2pkh_source():
     """A Counterwallet owner address is P2PKH: its ~107-byte signature sits in
     the full-weight scriptSig, so the reveal is larger than for a witness
     (taproot) source. The estimate must reflect that, or the fee is too low."""
-    from counters import tap
-    from counters.commands.inscribe import _estimate_reveal_vsize
+    from counters_proto import tap
+    from counters_proto.commands.inscribe import _estimate_reveal_vsize
 
     insc = builder.build_inscription(b"image/png", b"x" * 400, asset=b"PEPEME")
 
@@ -110,8 +110,8 @@ def test_sign_reveal_accepts_legacy_p2pkh_scriptsig_source():
     """A legacy P2PKH owner address (Counterwallet reinscription source) is
     signed by Core into the SCRIPTSIG, not the witness. _sign_reveal must accept
     that instead of erroring 'Core did not sign the source input'."""
-    from counters import tap
-    from counters.commands.inscribe import _sign_reveal
+    from counters_proto import tap
+    from counters_proto.commands.inscribe import _sign_reveal
 
     insc = builder.build_inscription(b"image/png", b"hello", asset=b"PEPEME")
     reveal = tap.Tx(
@@ -141,8 +141,8 @@ def test_sign_reveal_accepts_legacy_p2pkh_scriptsig_source():
 
 
 def test_sign_reveal_errors_when_core_signs_nothing():
-    from counters import tap
-    from counters.commands.inscribe import InscribeError, _sign_reveal
+    from counters_proto import tap
+    from counters_proto.commands.inscribe import InscribeError, _sign_reveal
 
     insc = builder.build_inscription(b"image/png", b"hi", asset=b"PEPEME")
     reveal = tap.Tx(vin=[tap.TxIn("aa" * 32, 1), tap.TxIn("bb" * 32, 0)],
@@ -235,7 +235,7 @@ def test_collect_fund_inputs_combines_and_dedupes():
     """--fund-from-address and --fund-from-input can be COMBINED: the coins are
     unioned and deduped (an explicit input that also sits at the address appears
     once). Order preserved: the explicit input first, then the address's UTXOs."""
-    from counters.commands.inscribe import _collect_fund_inputs
+    from counters_proto.commands.inscribe import _collect_fund_inputs
 
     dup = ("dd" * 32, 0)   # this UTXO is BOTH the explicit input and at the address
     other = ("ee" * 32, 1)
@@ -251,12 +251,12 @@ def test_collect_fund_inputs_combines_and_dedupes():
 
 
 def test_collect_fund_inputs_none_when_unspecified():
-    from counters.commands.inscribe import _collect_fund_inputs
+    from counters_proto.commands.inscribe import _collect_fund_inputs
     assert _collect_fund_inputs(_UtxoBtc({}), "w", None, None) is None
 
 
 def test_collect_fund_inputs_rejects_bad_input_and_empty_address():
-    from counters.commands.inscribe import InscribeError, _collect_fund_inputs
+    from counters_proto.commands.inscribe import InscribeError, _collect_fund_inputs
 
     for bad in ("notxidvout", "abc:xyz"):
         try:
@@ -283,8 +283,8 @@ def test_reinscribe_targets_current_owner_not_original_issuer():
     import tempfile
     from contextlib import redirect_stderr
 
-    from counters.commands import inscribe as m
-    from counters.config import Config
+    from counters_proto.commands import inscribe as m
+    from counters_proto.config import Config
 
     ISSUER = "1OriginalCreatorAAAAAAAAAAAAAAAAAAA"
     OWNER_NOW = "1CurrentOwnerBBBBBBBBBBBBBBBBBBBBBB"
