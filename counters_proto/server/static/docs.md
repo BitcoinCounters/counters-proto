@@ -4,11 +4,13 @@
      blocks highlight trailing # comments; numbered/bulleted lists get the
      explorer's copper markers. -->
 
-## What a counter is {#what}
+## What a proto-counter is {#what}
 
-A **Bitcoin counter** is a numbered inscription — a file committed to Bitcoin in witness data and linked to a Counterparty asset. Counters are numbered in order of creation.
+A **proto-counter** is a numbered inscription — a file committed to Bitcoin in witness data and linked to a Counterparty asset, numbered in order of creation.
 
-Any Counterparty asset can carry a counter — named, unnamed, divisible, new, or existing — and one asset can hold many.
+Proto-counters are the **first version** of Bitcoin Counters — the original `COUNT`-envelope protocol this indexer parses directly, since superseded by [the current protocol](https://www.bitcoincounters.com), which carries a counter as a Counterparty asset *description* inside Counterparty's taproot envelope.
+
+Any Counterparty asset can carry a proto-counter — named, unnamed, divisible, new, or existing — and one asset can hold many.
 
 The asset does the heavy lifting: identity, ownership, naming, and transfer are all Counterparty's job. The protocol stays small — it defines only the COUNT envelope, the validity rules, and the numbering.
 
