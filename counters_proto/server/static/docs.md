@@ -8,7 +8,7 @@
 
 A **proto-counter** is a numbered inscription — a file committed to Bitcoin in witness data and linked to a Counterparty asset, numbered in order of creation.
 
-Proto-counters are the **first version** of Bitcoin Counters — the original `COUNT`-envelope protocol this indexer parses directly, since superseded by [the current protocol](https://www.bitcoincounters.com), which carries a counter as a Counterparty asset *description* inside Counterparty's taproot envelope.
+Proto-counters are the **first version** of Bitcoin Counters — the original `COUNT`-envelope protocol this indexer parses directly, since superseded by [the current protocol](https://counters.gallery), which carries a counter as a Counterparty asset *description* inside Counterparty's taproot envelope.
 
 Any Counterparty asset can carry a proto-counter — named, unnamed, divisible, new, or existing — and one asset can hold many.
 
